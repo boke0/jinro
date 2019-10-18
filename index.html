@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="wrapper"></div>
+    <template id="top">
+        <h1 id="logo"><img src="img/logo.svg"></h1>
+        <div class="btns">
+            <button id="start">ゲーム開始</button>
+            <button id="setting">設定</button>
+        </div>
+    </template>
+    <template id="nofp">
+        <h1>プレイヤーの人数を設定してください</h1>
+        <div id="counter_container">
+            <button id="decrement"></button>
+            <div id="counter"></div>
+            <button id="increment"></button>
+        </div>
+        <div class="btns bottom">
+            <button id="next">次へ</button>
+        </div>
+    </template>
+    <template id="pname">
+        <h1><slot name="n"></slot>人目のプレイヤーの名前を入力してください</h1>
+        <div id="name" contenteditable></div>
+        <div class="btns bottom">
+            <button id="next">次へ</button>
+        </div>
+    </template>
+    <template id="narration"></template>
+    <template id="wolf"></template>
+    <template id="normal"></template>
+    <template id="bishop"></template>
+    <template id="hanter"></template>
+    <template id="foolman"></template>
+    <template id="psychic"></template>
+    <template id="fanatic"></template>
+    <template id="freemaison"></template>
+    <template id="firefox"></template>
+    <template id="immoral"></template>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
