@@ -11,38 +11,502 @@
         <h1 id="logo"><img src="img/logo.svg"></h1>
         <div class="btns">
             <button id="start">ゲーム開始</button>
-            <button id="setting">設定</button>
+            <!--<button id="setting">役職の設定</button>!-->
         </div>
+        <dialog id="setting_dialog">
+            <button onclick="this.parentNode.close()" class="close"></button>
+            <h1>役職の設定</h1>
+            <div id="job_list"></div>
+            <button>
+                決定
+            </button>
+        </dialog>
+        <script>
+            if(localStorage.getItem("setting")==null){
+                localStorage.setItem("setting",JSON.stringify({
+                    available:[
+                        "normal",
+                        "wolf",
+                        "bishop",
+                        "hanter"
+                    ]
+                }));
+            }
+            game=null;
+            document.querySelector("#start").onclick=()=>{
+                changeScene("nofp");
+            }
+            document.querySelector("#setting").onclick=()=>{
+                document.querySelector("#setting_dialog").showModal();
+            }
+        </script>
     </template>
     <template id="nofp">
         <h1>プレイヤーの人数を設定してください</h1>
         <div id="counter_container">
             <button id="decrement"></button>
-            <div id="counter"></div>
+            <input id="counter">
             <button id="increment"></button>
         </div>
-        <div class="btns bottom">
+        <div class="btns">
             <button id="next">次へ</button>
         </div>
+        <script>
+            let c=document.querySelector("#counter");
+            let min=4;
+            let setting=JSON.parse(localStorage.getItem("setting")).available;
+            setting.forEach(j=>{
+                if(j!="normal"&&j!="wolf") min+=jobs[j].number;
+            });
+            c.value=min;
+            document.querySelector("#decrement").onclick=function(){
+                c.value=Number(c.value)-1;
+                if(c.value==min) this.disabled=true;
+            }
+            document.querySelector("#increment").onclick=function(){
+                c.value=Number(c.value)+1;
+                document.querySelector("#decrement").disabled=false;
+            }
+            window.game={};
+            document.querySelector("#next").onclick=function(){
+                window.game.players=[];
+                const job_sort=[];
+                setting.forEach(j=>{
+                    for(let i=0;i<jobs[j].number;i++) job_sort.push(j);
+                });
+                while(job_sort.length<Number(c.value)){
+                    job_sort.push("normal");
+                }
+                for(let i=0;i<Number(c.value);i++){
+                    window.game.players.push({job:job_sort.splice(Math.floor(Math.random()*job_sort.length),1)[0]});
+                }
+                changeScene("pname");
+            }
+        </script>
     </template>
     <template id="pname">
-        <h1><slot name="n"></slot>人目のプレイヤーの名前を入力してください</h1>
-        <div id="name" contenteditable></div>
-        <div class="btns bottom">
+        <h1><span id="n"></span>人目のプレイヤーの名前を入力してください</h1>
+        <input id="name" placeholder="名前">
+        <div class="btns">
             <button id="next">次へ</button>
         </div>
+        <script>
+            var i=0;
+            game.players.forEach(p=>{
+                if(p.name!=undefined) i++;
+            });
+            document.querySelector("#n").innerHTML=i+1;
+            document.querySelector("#next").onclick=()=>{
+                game.players[i].name=document.querySelector("#name").value;
+                changeScene("job");
+            }
+        </script>
+    </template> 
+    <template id="job">
+        <h1>あなたの役職は...</h1>
+        <div id="job">
+            <img id="job_icon"/>
+            <h2 id="job_text"></h2>
+        </div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            var i=0;
+            game.players.forEach(p=>{
+                if(p.name!=undefined) i++;
+            });
+            i--;
+            document.querySelector("#job_icon").src="/img/"+game.players[i].job+".png";
+            document.querySelector("#job_text").innerHTML=jobs[game.players[i].job].text;
+            document.querySelector("#next").onclick=()=>{
+                if(i+1!=game.players.length){
+                    changeScene("pname");
+                }else{
+                    game.n=0;
+                    game.died=[];
+                    game.scared=[];
+                    game.saved=[];
+                    changeScene("narration");
+                }
+            }      
+        </script>
     </template>
-    <template id="narration"></template>
-    <template id="wolf"></template>
-    <template id="normal"></template>
-    <template id="bishop"></template>
-    <template id="hanter"></template>
-    <template id="foolman"></template>
-    <template id="psychic"></template>
-    <template id="fanatic"></template>
-    <template id="freemaison"></template>
-    <template id="firefox"></template>
-    <template id="immoral"></template>
-    <script type="module" src="main.js"></script>
+    <template id="narration">
+        <h1>ナレーション</h1>
+        <div id="text"></div>
+        <div class="btns">
+            <button id="next">次へ</button>
+        </div>
+        <script>
+            var serif=document.querySelector("#text");
+            var next;
+            if(game.n==0){
+                serif.innerHTML=`皆さんの村の中に人狼が紛れこんでいます。<br><br>
+人狼は夜ごとに、みなさんの中から一人を喰い殺していきます。人間側は人狼を処刑できれば勝ちであり、人狼側は人間と人狼が同数になると勝ちです`;
+                next="narration";
+            }else if(game.players.j()>=game.players.m()){ 
+                serif.innerHTML=`もうこの村には、人狼に対抗できる人数の村人がいません。<b>人狼陣営の勝利です！</b>`;
+                let noff=0;
+                game.players.forEach(e=>{
+                    if(jobs[e.job].group=="firefox") noff++;
+                });
+                if(noff>0) serif.innerHTML+="<br><br>…かと思いきや、この村には妖狐が生き残っており、村は妖狐に支配されてしまいました。<b>妖狐陣営の勝利です！</b>";
+                document.querySelector("#next").innerHTML="トップに戻る";
+                next="top";
+            }else if(game.players.j()==0){
+                serif.innerHTML=`村に平和が訪れました。<b>村人陣営の勝利です！</b>`;
+                let noff=0;
+                game.players.forEach(e=>{
+                    if(jobs[e.job].group=="firefox") noff++;
+                });
+                if(noff>0) serif.innerHTML+="<br><br>…かと思いきや、この村には妖狐が生き残っており、村は妖狐に支配されてしまいました。<b>妖狐陣営の勝利です！</b>";
+                document.querySelector("#next").innerHTML="トップに戻る";
+                next="top";
+            }else{
+                switch((game.n-1)%5){
+                    case 0:
+                        serif.innerHTML=`夜になりました。順番にスマートフォンを回してください。`;
+                        next="confirm";
+                        game.phase="night";
+                        game.i=0;
+                        break;
+                    case 1:
+                        serif.innerHTML=`昼になりました。<br><br>`;
+                        game.saved.forEach(s=>{
+                            while(game.died.indexOf(s)!=-1) game.died.splice(game.died.indexOf(s),1);
+                        });
+                        if(game.died.length>0){
+                            serif.innerHTML+=`昨晩死んだのは、`;
+                            let died=game.died[Math.floor(Math.random()*game.died.length)];
+                            game.players[died].died=true;
+                            serif.innerHTML+="<b>"+game.players[died].name+"<b>さん";
+                            serif.innerHTML+="です。<br><br>";
+                            game.died=[];
+                            game.scared=[];
+                            game.saved=[];
+                        }else{
+                            serif.innerHTML+="昨晩は、誰も死にませんでした。<br><br>";
+                        }
+                        next="narration";
+                        break;
+                    case 2:
+                        serif.innerHTML=`それでは、みなさんで誰が人狼なのかを話し合い、本日処刑する人を決めてもらいます。話し合い後に吊る人の投票を行います。話し合いは3分です。`;
+                        document.querySelector("#next").innerHTML="話し合いを始める";
+                        next="talk";
+                        break;
+                    case 3:
+                        serif.innerHTML=`話し合いを終了してください。それでは、本日処刑する人を投票で決めてください。`;
+                        next="confirm";
+                        game.phase="election";
+                        game.i=0;
+                        break;
+                    case 4:
+                        let killed;
+                        if(game.died.length>0){
+                            killed=game.died.mode();
+                            game.players[killed].died=true;
+                            game.died=[];
+                        }
+                        serif.innerHTML=`投票の結果、本日処刑されるのは、<b>${game.players[killed].name}さん</b>に決まりました。<b>${game.players[killed].name}</b>さんはこれ以降発言を行わないでください。`;
+                        next="narration";
+                        break;
+                }
+            }
+            game.n++;
+            document.querySelector("#next").onclick=()=> changeScene(next);
+        </script>
+    </template>
+    <template id="talk">
+        <h1>話し合い</h1>
+        <div id="timer"></div>
+        <script>
+            var timer=document.querySelector("#timer");
+            var limit=180;
+            function dec(){
+                timer.innerHTML=Math.floor(limit/60)+":"+("00"+limit%60).slice(-2);
+                limit--;
+                if(limit>=-1){
+                    setTimeout(()=>{
+                        dec();
+                    },1000);
+                }else{
+                    changeScene("narration");
+                }
+            }
+            dec();
+        </script>
+    </template>
+    <template id="confirm">
+        <h1><span id="name"></span>さんに交代してください</h1>
+        <div class="btns">
+            <button id="next">交代しました</button>
+        </div>
+        <script>
+            if(game.i==game.players.length){
+                game.i=0;
+                changeScene("narration");
+            }
+            document.querySelector("#name").innerHTML=game.players[game.i].name;
+            if(game.phase=="election"){
+                document.querySelector("#next").onclick=()=> changeScene("election");
+            }else{ 
+                document.querySelector("#next").onclick=()=> changeScene(jobs[game.players[game.i].job].action);
+            }
+        </script>
+    </template>
+    <template id="wolf">
+        <h1>今夜殺す人を決めてください</h1>
+        <form id="people_list">
+        </form>
+        <div class="btns">
+            <button id="next">確定</button>
+        </div>
+        <script>
+            if(game.n<=4){
+                changeScene("check_wolfman");
+            }else{
+                game.players.forEach((p,i)=>{
+                    if(p.died!=true&&p.job!="wolf"){
+                        const list=document.createElement("label");
+                        const input=document.createElement("input");
+                        input.name="check_target";
+                        input.type="radio";
+                        input.value=i;
+                        const name=document.createElement("div");
+                        name.innerHTML=p.name;
+                        list.appendChild(input);
+                        list.appendChild(name);
+                        document.querySelector("#people_list").appendChild(list);
+                    }
+                });
+                document.querySelector("#next").onclick=()=>{
+                    game.died.push(Number(document.querySelector("#people_list").check_target.value));
+                    game.i++;
+                    changeScene("confirm");
+                };
+            }
+        </script>
+    </template>
+    <template id="check_wolfman">
+        <h1>人狼陣営の人を確認してください</h1>
+        <div id="people_list">
+        </div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            game.players.forEach((p,i)=>{
+                if(game.i!=i){
+                    const list=document.createElement("div");
+                    const name=document.createElement("div");
+                    name.innerHTML=p.name;
+                    if(jobs[p.job].group=="wolfman") name.innerHTML+=" <span style=\"color:#a00\">(人狼仲間)</span>";
+                    list.appendChild(name);
+                    document.querySelector("#people_list").appendChild(list);
+                }
+            });
+            document.querySelector("#next").onclick=()=>{
+                game.i++;
+                changeScene("confirm");
+            }
+        </script>
+    </template>
+    <template id="election"> 
+        <h1>投票する人を決めてください</h1>
+        <form id="people_list"></form>
+        <div class="btns">
+            <button id="next">確定</button>
+        </div>
+        <script>
+            game.players.forEach((p,i)=>{
+                if(p.died!=true&&game.i!=i){
+                    const list=document.createElement("label");
+                    const input=document.createElement("input");
+                    input.name="check_target";
+                    input.type="radio";
+                    input.value=i;
+                    const name=document.createElement("div");
+                    name.innerHTML=p.name;
+                    list.appendChild(input);
+                    list.appendChild(name);
+                    document.querySelector("#people_list").appendChild(list);
+                }
+            });
+            document.querySelector("#next").onclick=()=>{
+                game.died.push(Number(document.querySelector("#people_list").check_target.value));
+                game.i++;
+                changeScene("confirm");
+            };
+        </script>
+    </template>
+    <template id="bishop"> 
+        <h1>今夜占う人を決めてください</h1>
+        <form id="people_list"></form>
+        <div class="btns">
+            <button id="next">確定</button>
+        </div>
+        <script>
+            game.players.forEach((p,i)=>{
+                if(p.died!=true&&game.i!=i){
+                    const list=document.createElement("label");
+                    const input=document.createElement("input");
+                    input.name="check_target";
+                    input.type="radio";
+                    input.value=i;
+                    const name=document.createElement("div");
+                    name.innerHTML=p.name;
+                    list.appendChild(input);
+                    list.appendChild(name);
+                    document.querySelector("#people_list").appendChild(list);
+                }
+            });
+            document.querySelector("#next").onclick=()=>{
+                game.i++;
+                game.checked=Number(document.querySelector("#people_list").check_target.value);
+                if(game.players[game.checked].job=="firefox") game.died.push(game.checked);
+                changeScene("bishop_result");
+            };
+        </script>
+    </template>
+    <template id="bishop_result">
+        <h1><span id="name"></span>さんは…</h1>
+        <div id="group">
+            <img id="group_icon"/>
+            <h2 id="group_text"></h2>
+        </div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            document.querySelector("#name").innerHTML=game.players[game.checked].name;
+            document.querySelector("#group_icon").src="/img/"+(game.players[game.checked].job=="wolfman"?"wolfman":"citizen")+".png";
+            document.querySelector("#group_text").innerHTML=game.players[game.checked].job=="wolfman"?"人狼":"村人";
+            document.querySelector("#next").onclick=()=>{
+                changeScene("confirm");
+            };
+        </script>
+    </template>
+    <template id="hanter">
+        <h1>今夜守る人を決めてください</h1>
+        <form id="people_list"></form>
+        <div class="btns">
+            <button id="next">確定</button>
+        </div>
+        <script>
+            if(game.n<=4){
+                changeScene("normal");
+            }else{
+                game.players.forEach((p,i)=>{
+                    if(p.died!=true&&game.i!=i){
+                        const list=document.createElement("label");
+                        const input=document.createElement("input");
+                        input.name="check_target";
+                        input.type="radio";
+                        input.value=i;
+                        const name=document.createElement("div");
+                        name.innerHTML=p.name;
+                        list.appendChild(input);
+                        list.appendChild(name);
+                        document.querySelector("#people_list").appendChild(list);
+                    }
+                });
+                document.querySelector("#next").onclick=()=>{
+                    game.saved.push(Number(document.querySelector("#people_list").check_target.value));
+                    game.i++;
+                    changeScene("confirm");
+                };
+            }
+        </script>
+    </template>
+    <template id="psychic">
+        <h1>殺された人の役職を確認してください</h1>
+        <div id="people"></div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            if(game.n<=4){
+                changeScene("normal");
+            }else{
+                game.players.forEach((p,i)=>{
+                    if(p.died!=true&&game.i!=i&&p.job!="wolf"){
+                        const list=document.createElement("label");
+                        const input=document.createElement("input");
+                        input.name="check_target";
+                        input.type="radio";
+                        input.value=i;
+                        const name=document.createElement("div");
+                        name.innerHTML=p.name;
+                        list.appendChild(input);
+                        list.appendChild(name);
+                        document.querySelector("#people_list").appendChild(list);
+                    }
+                });
+                document.querySelector("#next").onclick=()=>{
+                    game.died.push(Number(document.querySelector("#people_list").check_target.value));
+                    game.i++;
+                    changeScene("confirm");
+                };
+            }
+        </script>
+    </template>
+    <template id="fanatic">
+        <script>
+            if(game.n<=4){
+                changeScene("check_wolfman");
+            }else{
+                changeScene("normal");
+            }
+        </script>
+    </template>
+    <template id="normal">
+        <h1>一番怪しいと思う人を選んでください</h1>
+        <form id="people_list"></form>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            console.log("start");
+            game.players.forEach((p,i)=>{
+                console.log("now");
+                if(p.died!=true&&game.i!=i){
+                    const list=document.createElement("label");
+                    const input=document.createElement("input");
+                    input.name="check_target";
+                    input.type="radio";
+                    input.value=i;
+                    const name=document.createElement("div");
+                    name.innerHTML=p.name;
+                    list.appendChild(input);
+                    list.appendChild(name);
+                    document.querySelector("#people_list").appendChild(list);
+                }
+            });
+            document.querySelector("#next").onclick=()=>{
+                game.scared.push(Number(document.querySelector("#people_list").check_target.value));
+                game.i++;
+                changeScene("confirm");
+            };
+        </script>
+    </template>
+    <template id="freemaison">
+        <h1>他のフリーメイソンは…</h1>
+        <div id="people"></div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+        <script>
+            
+        </script>
+    </template>
+    <template id="immoral">
+        <h1>妖狐の正体は…</h1>
+        <div id="people"></div>
+        <div class="btns">
+            <button id="next">確認</button>
+        </div>
+    </template>
+    <script src="main.js"></script>
 </body>
 </html>
